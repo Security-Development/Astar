@@ -1,19 +1,21 @@
 #include <stdio.h>
 #include <windows.h>
 #include <math.h>
+
+#define MAX 40
 	//	y  x
 int map[5][7] = {
-	{0, 0, 0, 0, 0, 0, 0},
 	{0, 0, 0, 1, 0, 0, 0},
-	{0, 0, 0, 1, 0, 0, 0},
-	{0, 0, 0, 1, 0, 0, 0},
-	{0, 0, 0, 0, 0, 0, 0},
+	{0, 1, 0, 1, 0, 1, 0},
+	{0, 1, 0, 1, 0, 1, 0}, 
+	{0, 1, 0, 1, 0, 1, 0},
+	{0, 1, 0, 0, 0, 1, 0},
 };
 
 typedef struct Node {
 	struct Node* pNode; // parent Node
-	double g, h, f = 999;
-	int vector2[2]; // (x, y)
+	int g, h, f = 999;
+	int vector2[2] = {-1, -1}; // (x, y)
 	bool isNull = true, isStart = false, closing = false;
 } Node;
 
@@ -21,19 +23,17 @@ typedef struct Path {
 	int x, y;
 } Path;
 
-void initNode(Node node[35]) {
+void initNode(Node node[MAX]) {	
 	Node init;
-	for(int i = 0; i < 35; i++) {
+	for(int i = 0; i < MAX; i++) {
 		node[i] = init;
 	}
 }
 
 
-Node OpenList[35];
+Node OpenList[MAX];
 
-	
-Node CloseList[35];
-
+Node CurNode;
 int oCount, cCount = 0;
 
 Node End;
@@ -46,16 +46,18 @@ double getF(Node node) {
 	return node.g + node.h;
 } 
 
-double getH(Node node, Node end) {
-	return sqrt(
-			pow(node.vector2[0] - end.vector2[0], 2)
-		 + 
-			pow(node.vector2[1] - end.vector2[1], 2)
-		);
+int getH(Node node, Node end) {
+	//2 * (abs(now.first - goal.first) + abs(now.second - goal.second));
+	return 10 * (abs(node.vector2[0] - end.vector2[0]) + abs(node.vector2[1] - end.vector2[1])); // 가중치 휴리스틱 
+//	return sqrt(
+//			pow(node.vector2[0] - end.vector2[0], 2)
+//		 + 
+//			pow(node.vector2[1] - end.vector2[1], 2)
+//		);
 }
 
 bool isOpenList(Node node) {
-	for(int i = 0; i < 35; i++) {
+	for(int i = 0; i < MAX; i++) {
 		if( OpenList[i].vector2[0] == node.vector2[0] && OpenList[i].vector2[1] == node.vector2[1] )
 			return true;
 	}
@@ -63,28 +65,40 @@ bool isOpenList(Node node) {
 }
 
 void addOpenList(Node node, Node *pNode)  {
-	if( node.vector2[0] > 7 && node.vector2[1] > 5 && node.vector2[0] < 0 && node.vector2[1] < 0 ) {
+	if( node.vector2[0] > 6 || node.vector2[1] > 4 || node.vector2[0] < 0 || node.vector2[1] < 0 ) {
 		printf("맵의 범위를 넘어선 할당이 탐색됨\n");
 		return;
 	}
+	printf("들어감 : (%d, %d)\n", node.vector2[0], node.vector2[1]);
 	
-	if( map[node.vector2[0]][node.vector2[1]] == 1) // 벽이면 할당 안함 
+	if( map[node.vector2[1]][node.vector2[0]] == 1) // 벽이면 할당 안함 
 		return;
 		
-	if( isOpenList(node) ) // OpenList에 할당이 안되어 있는지 확인 
-		return; 
-	node.pNode = pNode;
-	node.g = node.pNode->g + 1;
-	node.h = getH(node, End);
-	node.f = getF(node);
-	
+		
+	if( node.closing )
+		return;
+		
+	if( isOpenList(node) )
+		return;
+		
+	node.pNode = pNode;	
+	if( node.isStart) {
+		node.g = 0;
+		node.h = getH(node, End);
+		node.f = getF(node) + 1;
+	}else {
+		node.g = node.pNode->g + 1;
+		node.h = getH(node, End);
+		node.f = getF(node);
+		
+	}
 	
 	OpenList[oCount++] = node;
 		
 }
 
 void addClose(Node node) {
-	for( int i = 0; i < 35; i++) {	
+	for( int i = 0; i < MAX; i++) {	
 		if( OpenList[i].vector2[0] == node.vector2[0] && OpenList[i].vector2[1] == node.vector2[1] ){
 			printf("닫음\n");
 			OpenList[i].closing = true;
@@ -108,36 +122,59 @@ void printMap() {
 	}
 }
 
+void deleteList(Node node) {
+	for(int i = 0; i < MAX; i++) {
+		if( OpenList[i].vector2[0] == node.vector2[0] && OpenList[i].vector2[1] == node.vector2[1] ){
+			Node a;
+			a.closing = true;
+			OpenList[i] = a;
+		}
+	}
+}
+
 void pathFinding(Node Start, Node end) {
-	Path path[35]; 
+	Path path[MAX]; 
 	
 	addOpenList(Start, &Start);
-	Node CurNode = OpenList[0];
-	
+
 	while( OpenList) {
 		Sleep(1000);
+		for(int i =0; i < MAX; i++) {
+			if(OpenList[i].vector2[0] != -1 && !OpenList[i].closing ) {
+				CurNode = OpenList[i];
+				CurNode.pNode = OpenList[i].pNode;
+				break;
+			}
+		}
+
 		system("cls");
 		printf("Start : (%d, %d)\n", Start.vector2[0], Start.vector2[1]);
 		printf("End : (%d, %d)\n", End.vector2[0], End.vector2[1]);
 		
-		for(int i = 0; i < 35; i++) {
-			printf("[%d] (%d, %d) : %f %f\n", i, OpenList[i].vector2[0], OpenList[i].vector2[1], CurNode.f, OpenList[i].f);
-			if( (CurNode.f > OpenList[i].f - 1) && !OpenList[i].closing ){
+		for(int i = 0; i < MAX; i++) {
+			//printf("[%d] [[%d]] (%d, %d) : %d < %d => %d <= %d\n", i, OpenList[i].closing, OpenList[i].vector2[0], OpenList[i].vector2[1], OpenList[i].h, CurNode.h, OpenList[i].f, CurNode.f);
+			if( OpenList[i].closing)
+				continue;
+		
+			if( OpenList[i].f <= CurNode.f && OpenList[i].g < CurNode.g ){
 				CurNode = OpenList[i];
-			}
+				CurNode.pNode = OpenList[i].pNode;
+			} 
+			
 		}
-
-		printf("(%d, %d)\n", CurNode.vector2[0], CurNode.vector2[1]);
-		map[CurNode.vector2[0]][CurNode.vector2[1]] = 2;
+		Node CurpNode;
+		CurpNode = *CurNode.pNode;
+		
+		printf("pNode : (%d, %d)\n", CurpNode.vector2[0], CurpNode.vector2[1]);
+		printf("Node : (%d, %d)\n", CurNode.vector2[0], CurNode.vector2[1]);
+		map[CurNode.vector2[1]][CurNode.vector2[0]] = 2;
 		printMap();
 		
 		addClose(CurNode);
-		
 		// 도착지점에 도착 했으면 실행 하는 구문 
 		if( CurNode.vector2[0] == end.vector2[0] && CurNode.vector2[1] == end.vector2[1] ){
-			break;
-			
-			// 백트레킹 부분 나중에 fix 하기 
+			//break;
+			 //백트레킹 부분 나중에 fix 하기 
 //			int pCount = 0;
 //			Node *current = &CurNode;
 //			printf("[ ");
@@ -149,14 +186,14 @@ void pathFinding(Node Start, Node end) {
 //			 	pCount += 1;
 //			}
 //			printf(" ]\n");
+			break;
 		}
 		
-		
+		Node dNode;
 		for(int i = 0; i < 4; i++) {
-			Node dNode;
 			dNode.vector2[0] = CurNode.vector2[0] + dX[i];
 			dNode.vector2[1] = CurNode.vector2[1] + dY[i];
-			addOpenList(dNode, &CurNode);
+			addOpenList(dNode, &CurpNode);
 		}
 	}
 	
@@ -176,9 +213,8 @@ Node makeNode(int x, int y, double g) {
 int main() {
 
 	initNode(OpenList);
-	initNode(CloseList);
-	End = makeNode(4, 6, -1);
-	Start = makeNode(2, 0, -1);
+	End = makeNode(6, 3, -1);
+	Start = makeNode(0, 2, -1);
 	Start.isStart = true;	
 	Start.h = getH(Start, End);
 	Start.f = getF(Start);
